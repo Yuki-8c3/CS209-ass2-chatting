@@ -1,6 +1,12 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -8,6 +14,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import javafx.util.Callback;
@@ -21,18 +28,51 @@ import java.util.concurrent.atomic.AtomicReference;
 public class Controller implements Initializable {
 
     @FXML
-    ListView<Message> chatContentList;
+    ListView<Message> chatContentList; //消息记录
+    @FXML
+    private TextArea inputArea;
 
     String username;
 
+    private Socket socket;
+    private BufferedReader br;
+    private PrintWriter pw;
+
+    /**
+     * 连接服务器，需要制定host和port
+     * @return
+     */
+    public boolean connect(String host, int port) {
+        //这里和ClientThread关联，注意ClientThread过来的东西已经是处理过的了
+        try{
+            socket = new Socket(host, port);
+            System.out.println("I am on port:" + socket.getLocalPort());
+            System.out.println("Connected to Server" + socket.getRemoteSocketAddress()); //返回地址和端口
+            br = new BufferedReader(new InputStreamReader(System.in));//控制台读入
+            pw = new PrintWriter(socket.getOutputStream());
+            //创建一个解析消息的线程
+            //传入当前客户端对象的指针，可以调用相应的处理函数
+            ClientThread thread = new ClientThread(socket, this);
+            thread.start();
+            return true;
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            System.out.println("Server error");
+            return false;
+        }
+    }
+
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-
+        //服务器连接
+        connect("localhost",6666);
+        //输入当前用户的用户名，如果不为空就赋值给username；否则退出程序
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
         dialog.setContentText("Username:");
-
+        inputArea.setText("");
         Optional<String> input = dialog.showAndWait();
         if (input.isPresent() && !input.get().isEmpty()) {
             /*
@@ -49,17 +89,21 @@ public class Controller implements Initializable {
     }
 
     @FXML
+    //创建私聊
     public void createPrivateChat() {
         AtomicReference<String> user = new AtomicReference<>();
 
         Stage stage = new Stage();
-        ComboBox<String> userSel = new ComboBox<>();
+        ComboBox<String> userSel = new ComboBox<>(); //下拉框
+        Button okBtn = new Button("OK"); //按钮
+
 
         // FIXME: get the user list from server, the current user's name should be filtered out
         userSel.getItems().addAll("Item 1", "Item 2", "Item 3");
 
-        Button okBtn = new Button("OK");
+
         okBtn.setOnAction(e -> {
+            //将选择的用户保存到AtomicReference类型的user变量中
             user.set(userSel.getSelectionModel().getSelectedItem());
             stage.close();
         });
@@ -73,6 +117,7 @@ public class Controller implements Initializable {
 
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
+        // 标题为选定用户的用户名称
     }
 
     /**
@@ -98,12 +143,37 @@ public class Controller implements Initializable {
     @FXML
     public void doSendMessage() {
         // TODO
+        // 向当前聊天室发送消息，发送空白消息(此处包括全空格）是不允许的。发送消息后，清空消息输入框。
+        String message = inputArea.getText();
+//        System.out.println(message);
+        if (message.trim().isEmpty()) {
+            Alert alert = new Alert(AlertType.WARNING);
+            alert.setTitle("Warning");
+            alert.setHeaderText(null);
+            alert.setContentText("Please enter a message.");
+            alert.showAndWait();
+            return;
+        }
+        // TODO: 将信息发送给服务器
+        sendMsg(message, "");
+        inputArea.clear();
+    }
+
+    //发送的消息体构造
+    public void sendMsg(String msg, String code) {
+        try{
+            pw.println("<code>"+code+"</code><msg>"+msg+"</msg>");
+            pw.flush();
+        } catch (Exception e) {
+            System.out.println("Cannot send a message");
+        }
     }
 
     /**
      * You may change the cell factory if you changed the design of {@code Message} model.
      * Hint: you may also define a cell factory for the chats displayed in the left panel, or simply override the toString method.
      */
+    //设置聊天记录的渲染，吧Message渲染为ListView的每一行
     private class MessageCellFactory implements Callback<ListView<Message>, ListCell<Message>> {
         @Override
         public ListCell<Message> call(ListView<Message> param) {
