@@ -89,6 +89,16 @@ public class ClientThread extends Thread {
     pw.flush();
   }
 
+  public void createGroup(List<String> userList) {
+    StringBuffer stringBuffer = new StringBuffer();
+    for (String str: userList
+    ) {
+      stringBuffer.append(str).append(",");
+    }
+    pw.println(wrapper("groupCreate", stringBuffer.toString()));
+    pw.flush();
+  }
+
   /**
    * 解析服务器发送的信息
    */

@@ -10,6 +10,8 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -245,14 +247,39 @@ public class ServerThread extends Thread {
               .filter(u -> u.getUserName().equals(users[finalI]))
               .findFirst()
               .orElse(null);
-          user.getRoomList().add(groupRoom);
+          user.getRoomList().add(groupRoom); //add了groupRoom进去
           //直接往里面加人
           usersInGroup.add(user);
         }
+        // 按照用户名的开头字母对用户列表进行排序
+        Collections.sort(usersInGroup, new Comparator<User>() {
+          public int compare(User user1, User user2) {
+            return user1.getUserName().compareTo(user2.getUserName());
+          }
+        });
         //建房
         groupRoom.setTotalUsers(size);
+        StringBuffer stringBuffer = new StringBuffer();
+//        System.out.println("size is: " + size);
+        size++;
+        if (size > 3) {
+          // 提取前三个用户
+          List<User> firstThreeUsers = usersInGroup.subList(0, Math.min(usersInGroup.size(), 3));
+          for (int i = 0; i < 2; i++) {
+            stringBuffer.append(firstThreeUsers.get(i).getUserName()).append(",");
+          }
+          stringBuffer.append(firstThreeUsers.get(2).getUserName()).append("...");
+        } else {
+          for (int i = 0; i < size - 1; i++) {
+            stringBuffer.append(usersInGroup.get(i).getUserName()).append(",");
+          }
+          stringBuffer.append(usersInGroup.get(size - 1).getUserName());
+        }
+        stringBuffer.append("(").append(size).append(")");
+        groupRoom.setRoomName(stringBuffer.toString());
         //上服务器，改子服务器
         this.user.getRoomList().add(groupRoom);
+        this.user.setCurrentRoom(groupRoom.getRoomName());
         Server.roomList.add(groupRoom);
         //广播
         sendGroupPartnerMessage(groupRoom);

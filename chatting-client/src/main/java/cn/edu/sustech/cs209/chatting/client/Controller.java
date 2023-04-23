@@ -4,6 +4,7 @@ import cn.edu.sustech.cs209.chatting.common.Message;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javafx.application.Platform;
@@ -202,7 +203,6 @@ public class Controller implements Initializable {
     ComboBox<String> userSel = new ComboBox<>(); //下拉框
     Button okBtn = new Button("OK"); //按钮
 
-    // FIXME: get the user list from server, the current user's name should be filtered out
     int size = users.length;
     System.out.println(size);
     for (int i = 0; i < size; i++) {
@@ -246,6 +246,47 @@ public class Controller implements Initializable {
    */
   @FXML
   public void createGroupChat() {
+    AtomicReference<String> user = new AtomicReference<>();
+    Stage stage = new Stage();
+    //多选框
+    List<CheckBox> userSel = new ArrayList<>();
+    Button okBtn = new Button("OK"); //按钮
+
+    int size = users.length;
+    System.out.println(size);
+    for (int i = 0; i < size; i++) {
+      if (users[i].equals(username)) {
+        continue;
+      }
+      userSel.add(new CheckBox(users[i]));
+    }
+
+    okBtn.setOnAction(e -> {
+      List<String> usersChosen = new ArrayList<>();
+      for (CheckBox checkBox: userSel
+      ) {
+        if (checkBox.isSelected()) {
+          usersChosen.add(checkBox.getText());
+        }
+      }
+      clientThread.createGroup(usersChosen);
+      stage.close();
+    });
+
+    HBox box = new HBox(10);
+    box.setAlignment(Pos.CENTER);
+    box.setPadding(new Insets(20, 20, 20, 20));
+    box.getChildren().addAll(userSel);
+    box.getChildren().add(okBtn);
+    stage.setScene(new Scene(box));
+    stage.setOnCloseRequest(windowEvent -> {
+      destroy();
+    });
+    // TODO: if the current user already chatted with the selected user, just open the chat with that user
+    // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
+    // 标题为选定用户的用户名称
+    stage.setTitle(currentRoom);
+    stage.showAndWait();
   }
 
   /**
