@@ -10,10 +10,10 @@ public class Message {
 
     private String data;
 
-    public Message(Long timestamp, String sentBy, String sendTo, String data) {
-        this.timestamp = timestamp;
+    public Message( String sentBy,  String data) {
+
         this.sentBy = sentBy;
-        this.sendTo = sendTo;
+
         this.data = data;
     }
 
