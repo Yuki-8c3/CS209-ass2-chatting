@@ -3,8 +3,7 @@ package cn.edu.sustech.cs209.chatting.common;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,8 +11,8 @@ import java.util.List;
 public class User {
   private String userName;
   private Socket userSocket; //服务器只做计算，所有打印跟随用户
-  private BufferedReader br;
-  private PrintWriter pw;
+  private InputStream uis;
+  private OutputStream uos;
 
   private List<String> partners = new ArrayList<>();
   private List<Room> roomList = new ArrayList<>();
@@ -22,8 +21,8 @@ public class User {
   public User(String userName, Socket socket) throws IOException {
     this.userName = userName;
     this.userSocket = socket;
-    this.br = new BufferedReader(new InputStreamReader(socket.getInputStream()));//从socket拿取信息
-    this.pw = new PrintWriter(socket.getOutputStream()); //写进socket
+    this.uis = socket.getInputStream();//从socket拿取信息
+    this.uos = socket.getOutputStream(); //写进socket
 
     //还有一个好处是我们的服务器线程可以去print一些基本信息，知道哪里出问题
   }
@@ -36,12 +35,12 @@ public class User {
     return userSocket;
   }
 
-  public BufferedReader getBr() {
-    return br;
+  public InputStream getUis() {
+    return uis;
   }
 
-  public PrintWriter getPw() {
-    return pw;
+  public OutputStream getUos() {
+    return uos;
   }
 
   public List<String> getPartners() {

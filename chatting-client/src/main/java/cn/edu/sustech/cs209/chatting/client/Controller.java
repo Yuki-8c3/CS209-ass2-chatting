@@ -39,6 +39,8 @@ public class Controller implements Initializable {
   ListView<Message> chatContentList; //消息记录
   ObservableList<Message> messageObservableList = FXCollections.observableArrayList();
   @FXML
+  Button emoji;
+  @FXML
   ListView<String> chatList;
   ObservableList<String> roomObservableList = FXCollections.observableArrayList();
   @FXML
@@ -47,7 +49,8 @@ public class Controller implements Initializable {
   Label currentUsername;
   @FXML
   Label currentOnlineCnt;
-
+  @FXML
+  Button emojiOk;
   private ClientThread clientThread;
 
   String username;
@@ -57,13 +60,13 @@ public class Controller implements Initializable {
   String[] users;
   String currentRoom;
 
+
   public void setCurrentRoom(String str) {
     //一般是创建了新的，所以先要清除所有的messages
     Platform.runLater(() -> {
       this.currentRoom = str;
       messageObservableList.clear();
       messageObservableList.add(new Message("System", "CURRENT ROOM:" + str));
-
     });
 
   }
@@ -133,6 +136,7 @@ public class Controller implements Initializable {
 
   @Override
   public void initialize(URL url, ResourceBundle resourceBundle) {
+
     //服务器连接
     connect("localhost", 6666);
     //输入当前用户的用户名，如果不为空就赋值给username；否则退出程序
@@ -140,7 +144,19 @@ public class Controller implements Initializable {
     dialog.setTitle("Login");
     dialog.setHeaderText("I am on port:" + clientThread.getClientSocket().getLocalPort());
     dialog.setContentText("Username:");
-
+    ChoiceBox<String> emojiChoiceBox = new ChoiceBox<>();
+    emojiChoiceBox.getItems().addAll("\uD83D\uDE00", "😂", "😍", "👍"); // 将Emoji表情添加到选项中
+    Stage stage = new Stage();
+    stage.setScene(new Scene(emojiChoiceBox));
+    emoji.setOnAction(event -> {
+      stage.showAndWait();
+    });
+    emojiOk.setOnAction(actionEvent -> {
+      String selectedEmoji = emojiChoiceBox.getValue();
+//      System.out.println("\uD83D\uDE00");
+      stage.close();
+      inputArea.appendText(selectedEmoji); // 将选定的Emoji插入到文本控件中
+    });
     // 将currentUsername的text属性绑定到usernameProperty变量
     currentUsername.textProperty().bind(usernameProperty);
 //    // 将currentOnlineCnt的text属性绑定到onlineCntProperty变量
@@ -155,7 +171,11 @@ public class Controller implements Initializable {
              */
       //check if there is a username like that
       username = input.get();
-      clientThread.checkUsername(username); //且进行login
+      try {
+        clientThread.checkUsername(username); //且进行login
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     } else if (!input.isPresent()) {
       try {
         clientThread.leave();
@@ -211,12 +231,16 @@ public class Controller implements Initializable {
       }
       userSel.getItems().add(users[i]);
     }
-//    userSel.getItems().addAll("Item 1", "Item 2", "Item 3");
+
 
     okBtn.setOnAction(e -> {
       //将选择的用户保存到AtomicReference类型的user变量中
       user.set(userSel.getSelectionModel().getSelectedItem());
-      clientThread.createPrivate(user.get());
+      try {
+        clientThread.createPrivate(user.get());
+      } catch (IOException ex) {
+        throw new RuntimeException(ex);
+      }
       stage.close();
     });
 
@@ -224,14 +248,18 @@ public class Controller implements Initializable {
     box.setAlignment(Pos.CENTER);
     box.setPadding(new Insets(20, 20, 20, 20));
     box.getChildren().addAll(userSel, okBtn);
+
+
+
     stage.setScene(new Scene(box));
-    stage.setOnCloseRequest(windowEvent -> {
-      destroy();
-    });
+
+//    stage.setOnCloseRequest(windowEvent -> {
+//      destroy();
+//    });
     // TODO: if the current user already chatted with the selected user, just open the chat with that user
     // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
     // 标题为选定用户的用户名称
-    stage.setTitle(currentRoom);
+
     stage.showAndWait();
   }
 
@@ -269,7 +297,11 @@ public class Controller implements Initializable {
           usersChosen.add(checkBox.getText());
         }
       }
-      clientThread.createGroup(usersChosen);
+      try {
+        clientThread.createGroup(usersChosen);
+      } catch (IOException ex) {
+        throw new RuntimeException(ex);
+      }
       stage.close();
     });
 
@@ -279,9 +311,9 @@ public class Controller implements Initializable {
     box.getChildren().addAll(userSel);
     box.getChildren().add(okBtn);
     stage.setScene(new Scene(box));
-    stage.setOnCloseRequest(windowEvent -> {
-      destroy();
-    });
+//    stage.setOnCloseRequest(windowEvent -> {
+//      destroy();
+//    });
     // TODO: if the current user already chatted with the selected user, just open the chat with that user
     // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
     // 标题为选定用户的用户名称
@@ -296,7 +328,7 @@ public class Controller implements Initializable {
    * field.
    */
   @FXML
-  public void doSendMessage() {
+  public void doSendMessage() throws IOException {
     // TODO
     // 向当前聊天室发送消息，发送空白消息(此处包括全空格）是不允许的。发送消息后，清空消息输入框。
     String message = inputArea.getText();
@@ -398,7 +430,11 @@ public class Controller implements Initializable {
           msgLabel.setPadding(new Insets(0, 0, 0, 20));
           msgLabel.setOnMouseClicked(event -> {
             //switch
-            clientThread.switchGroup(msgLabel.getText());
+            try {
+              clientThread.switchGroup(msgLabel.getText());
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
           });
 //            System.out.println(currentRoom);
 //          if (str.equals(currentRoom)) {

@@ -1,11 +1,15 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -18,8 +22,9 @@ public class ClientThread extends Thread {
 
   private Socket clientSocket;
   private Controller controller; //controller里也有一个对应的线程
-  private BufferedReader br;
-  private PrintWriter pw;
+  private InputStream cis;
+  private OutputStream cos;
+
   //新增一个volatile变量，控制线程退出
 
   //从Controller传入的socket和client，严格意义上等于一个线程共用在两个类里
@@ -27,8 +32,8 @@ public class ClientThread extends Thread {
     this.controller = controller;
     this.clientSocket = socket;
     try {
-      br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-      pw = new PrintWriter(socket.getOutputStream());
+      cis = socket.getInputStream();
+      cos = socket.getOutputStream();
     } catch (IOException e) {
       throw new RuntimeException("cannot get input stream from socket");
     }
@@ -40,12 +45,20 @@ public class ClientThread extends Thread {
   @Override
   public void run() {
     try {
-      br = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-      pw = new PrintWriter(clientSocket.getOutputStream());
+      cis = clientSocket.getInputStream();
+      cos = clientSocket.getOutputStream();
       //一般都会已经创好了
       // br = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
       while (true) {
-        String msg = br.readLine(); //读取发送过来的信息
+//        String msg = br.readLine(); //读取发送过来的信息
+        byte[] buffer = new byte[1024];
+        int len = cis.read(buffer);
+        // 将字节流解码为字符串
+        Charset charset = StandardCharsets.UTF_8;
+        CharsetDecoder decoder = charset.newDecoder();
+        ByteBuffer byteBuffer = ByteBuffer.wrap(buffer, 0, len);
+        CharBuffer charBuffer = decoder.decode(byteBuffer);
+        String msg = charBuffer.toString();
         if (!msg.equals("")) {
           System.out.println(msg);
           // TODO：信息的解析包装
@@ -53,9 +66,8 @@ public class ClientThread extends Thread {
         }
       }
     } catch (Exception e) {
-      e.printStackTrace();
-      System.out.println("It's me");
-      System.exit(0);
+      System.out.println("error in connection, server might be shut down");
+      controller.destroy();
     }
   }
 
@@ -64,39 +76,39 @@ public class ClientThread extends Thread {
     return "<code>" + code + "</code><msg>" + msg + "</msg>\n";
   }
 
-  public void sendMessage(String msg){
+  public void sendMessage(String msg) throws IOException {
     System.out.println("SEND---------------->" + msg);
     String[] lines = msg.split("\n");
     if(lines.length == 1) {
-      pw.println(wrapper("sendMessage",msg));
-      pw.flush();
+      cos.write(wrapper("sendMessage",msg).getBytes(StandardCharsets.UTF_8));
+      cos.flush();
       return;
     }
     StringBuffer sb = new StringBuffer();
     for (String line : lines) {
       sb.append(line).append("&");
     }
-    pw.println(wrapper("sendMessage",sb.toString()));
-    pw.flush();
+    cos.write(wrapper("sendMessage",sb.toString()).getBytes(StandardCharsets.UTF_8));
+    cos.flush();
   }
-  public void switchGroup(String groupName){
+  public void switchGroup(String groupName) throws IOException {
 //    System.out.println("!!!!!!!!!!switch to "+ groupName);
-    pw.println(wrapper("roomSwitch", groupName));
-    pw.flush();
+    cos.write(wrapper("roomSwitch", groupName).getBytes(StandardCharsets.UTF_8));
+    cos.flush();
   }
-  public void createPrivate(String username) {
-    pw.println(wrapper("privateCreate", username));
-    pw.flush();
+  public void createPrivate(String username) throws IOException {
+    cos.write(wrapper("privateCreate", username).getBytes(StandardCharsets.UTF_8));
+    cos.flush();
   }
 
-  public void createGroup(List<String> userList) {
+  public void createGroup(List<String> userList) throws IOException {
     StringBuffer stringBuffer = new StringBuffer();
     for (String str: userList
     ) {
       stringBuffer.append(str).append(",");
     }
-    pw.println(wrapper("groupCreate", stringBuffer.toString()));
-    pw.flush();
+    cos.write(wrapper("groupCreate", stringBuffer.toString()).getBytes(StandardCharsets.UTF_8));
+    cos.flush();
   }
 
   /**
@@ -277,27 +289,30 @@ public class ClientThread extends Thread {
         }
         controller.setChatContentList(messageList, curroom);
         break;
+      case "701":
+        controller.alert("Server has shut down");
+        break;
       default:
         System.out.println("Nothing matches the code from server!" + code);
     }
   }
 
   public void leave() throws IOException {
-    pw.println(wrapper("exit", ""));
-    pw.flush();
+    cos.write(wrapper("exit", "").getBytes(StandardCharsets.UTF_8));
+    cos.flush();
   }
 
-  public void checkUsername(String username) {
-    pw.println(wrapper("checkUserName", username));
-    pw.flush();
+  public void checkUsername(String username) throws IOException {
+    cos.write(wrapper("checkUserName", username).getBytes(StandardCharsets.UTF_8));
+    cos.flush();
   }
 
-  public BufferedReader getBr() {
-    return br;
+  public InputStream getCis() {
+    return cis;
   }
 
-  public PrintWriter getPw() {
-    return pw;
+  public OutputStream getCos() {
+    return cos;
   }
 
   public Socket getClientSocket() {

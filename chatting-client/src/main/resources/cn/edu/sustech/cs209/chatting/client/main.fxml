@@ -53,5 +53,9 @@
         </Label>
         <Pane HBox.hgrow="ALWAYS"/>
         <Label fx:id="currentOnlineCnt" font="$x3" text="Online: 1" textFill="$x4" HBox.hgrow="NEVER"/>
+        <Button fx:id="emoji" text="choose emoji">
+        </Button>
+        <Button fx:id="emojiOk" text="I like this emoji!">
+        </Button>
     </HBox>
 </VBox>

@@ -3,13 +3,17 @@ package cn.edu.sustech.cs209.chatting.server;
 import cn.edu.sustech.cs209.chatting.common.Message;
 import cn.edu.sustech.cs209.chatting.common.Room;
 import cn.edu.sustech.cs209.chatting.common.User;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.ArrayList;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -18,9 +22,9 @@ import java.util.regex.Pattern;
 
 public class ServerThread extends Thread {
 
-  private BufferedReader br;
+  private InputStream sis;
   private boolean login = false;
-  private PrintWriter pw;
+  private OutputStream sos;
   private User user;
 //  private List<String> partnerList;
 //  private List<Room> roomList;
@@ -33,16 +37,26 @@ public class ServerThread extends Thread {
     this.userSocket = socket;
 //    this.partnerList = new ArrayList<>();
 //    this.roomList = new ArrayList<>();
-    this.br = new BufferedReader(new InputStreamReader(socket.getInputStream()));//从socket拿取信息
-    this.pw = new PrintWriter(socket.getOutputStream());
+    this.sis = socket.getInputStream();//从socket拿取信息
+    this.sos = socket.getOutputStream();
   }
+
+
 
   @Override
   public void run() {
 //    System.out.println("Hi, I am alive");
     try {
       while (true) {
-        String msg = br.readLine();
+        byte[] buffer = new byte[1024];
+        int len = userSocket.getInputStream().read(buffer);
+        // 将字节流解码为字符串
+        Charset charset = StandardCharsets.UTF_8;
+        CharsetDecoder decoder = charset.newDecoder();
+        ByteBuffer byteBuffer = ByteBuffer.wrap(buffer, 0, len);
+        CharBuffer charBuffer = decoder.decode(byteBuffer);
+        String msg = charBuffer.toString();
+//        String msg = br.readLine();
         if (!msg.equals("")) {
           System.out.println("The msg" + msg);
           destructMessage(msg);
@@ -67,9 +81,9 @@ public class ServerThread extends Thread {
         // TODO：可能有个房间的提示好一点，但是目前先这样吧
         try {
           //全部关闭
-          user.getBr().close();
+          user.getUis().close();
           user.getUserSocket().close();
-          user.getPw().close();
+          user.getUos().close();
           exit = true;
         } catch (IOException e) {
           throw new RuntimeException(e);
@@ -343,26 +357,26 @@ public class ServerThread extends Thread {
     return !Server.onlineUserList.stream().anyMatch(user -> user.getUserName().equals(username));
   }
 
-  private String wrapper(int code, String msg) {
+  static String wrapper(int code, String msg) {
     return "<code>" + code + "</code><msg>" + msg + "</msg>\n";
   }
 
   /**
    * Message senders
    */
-  private void returnMessage(String message) {
-    pw.println(message);
-    pw.flush();
+  private void returnMessage(String message) throws IOException {
+    sos.write(message.getBytes(StandardCharsets.UTF_8));
+    sos.flush();
   }
 
   //给所有在线的朋友们发信息
   private void sendOnlineMessage(String message) {
     //TODO：如果大家都去改在线的...就不太合理
-    PrintWriter pw;
+    OutputStream pw;
     for (User user : Server.onlineUserList) {
       try {
-        pw = user.getPw();
-        pw.println(message);
+        pw = user.getUos();
+        pw.write(message.getBytes(StandardCharsets.UTF_8));
         pw.flush();
       } catch (Exception e) {
         System.out.println("Error in sendMessage()");
@@ -370,8 +384,8 @@ public class ServerThread extends Thread {
     }
   }
 
-  private void sendGroupPartnerMessage(Room room) {
-    PrintWriter pw;
+  private void sendGroupPartnerMessage(Room room) throws IOException {
+    OutputStream pw;
     System.out.println("------"+room.getRoomName());
     //改的是房间渲染，可以不发chatHistory
     List<User> users = room.getUserList();
@@ -386,14 +400,14 @@ public class ServerThread extends Thread {
             getAllRooms(u) + "<roomname>" + u.getCurrentRoom() + "</roomname>"
         );
       }
-      pw = u.getPw();
-      pw.println(str);
+      pw = u.getUos();
+      pw.write(str.getBytes(StandardCharsets.UTF_8));
       pw.flush();
     }
   }
 
-  private void sendPartnerInRoom(Room room) {
-    PrintWriter pw;
+  private void sendPartnerInRoom(Room room) throws IOException {
+    OutputStream pw;
     //send message, 更新聊天记录
     List<User> parternersInRoom = room.getUserList();
     for (User u : parternersInRoom) {
@@ -402,8 +416,8 @@ public class ServerThread extends Thread {
         String str = wrapper(502,
             getAllRooms(u) + "<roomname>" + room.getRoomName() + "</roomname>"
                 + getChatHistory(room));
-        pw = u.getPw();
-        pw.println(str);
+        pw = u.getUos();
+        pw.write(str.getBytes(StandardCharsets.UTF_8));
         pw.flush();
       }
     }

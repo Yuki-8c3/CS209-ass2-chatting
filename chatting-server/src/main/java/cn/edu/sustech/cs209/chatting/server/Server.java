@@ -1,9 +1,15 @@
 package cn.edu.sustech.cs209.chatting.server;
 
+import static cn.edu.sustech.cs209.chatting.server.ServerThread.wrapper;
+
 import cn.edu.sustech.cs209.chatting.common.Room;
 import cn.edu.sustech.cs209.chatting.common.User;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,8 +49,15 @@ public class Server {
         }
     }
 
-
-    public static void main(String[] args) {
+    public static void sendServerDeath() throws IOException {
+        List<User> onlineUsers = Server.onlineUserList;
+        for (User user: onlineUsers) {
+            OutputStream pw = user.getUos();
+            pw.write(wrapper(701, "die").getBytes(StandardCharsets.UTF_8));
+            pw.flush();
+        }
+    }
+    public static void main(String[] args) throws IOException {
         System.out.println("Starting server");
         //监听端口号6666
         try{
@@ -52,6 +65,10 @@ public class Server {
             server.listen();
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            //退出server，先发一个信息出去
+            sendServerDeath();
+            System.exit(0);
         }
     }
 
