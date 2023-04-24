@@ -25,6 +25,7 @@ import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 import javafx.util.Callback;
 
 import java.net.URL;
@@ -52,7 +53,8 @@ public class Controller implements Initializable {
   @FXML
   Button emojiOk;
   private ClientThread clientThread;
-
+  boolean validation = false;
+  boolean userExist = false;
   String username;
   private StringProperty usernameProperty = new SimpleStringProperty();
   private StringProperty onlineCntProperty = new SimpleStringProperty();
@@ -127,7 +129,8 @@ public class Controller implements Initializable {
       thread.start();
       return true;
     } catch (UnknownHostException e) {
-      throw new RuntimeException(e);
+      System.out.println("unknown host");
+      return false;
     } catch (IOException e) {
       System.out.println("Server error");
       return false;
@@ -144,6 +147,7 @@ public class Controller implements Initializable {
     dialog.setTitle("Login");
     dialog.setHeaderText("I am on port:" + clientThread.getClientSocket().getLocalPort());
     dialog.setContentText("Username:");
+
     ChoiceBox<String> emojiChoiceBox = new ChoiceBox<>();
     emojiChoiceBox.getItems().addAll("\uD83D\uDE00", "😂", "😍", "👍"); // 将Emoji表情添加到选项中
     Stage stage = new Stage();
@@ -162,29 +166,44 @@ public class Controller implements Initializable {
 //    // 将currentOnlineCnt的text属性绑定到onlineCntProperty变量
     currentOnlineCnt.textProperty().bind(Bindings.concat("Online: ").concat(onlineCntProperty));
     inputArea.setText("");
-    Optional<String> input = dialog.showAndWait();
-
-    if (input.isPresent() && !input.get().isEmpty()) {
+    Optional<String> input;
+    while (true) {
+//      if (validation & !userExist) { //会循环回来
+//        break;
+//      }
+      input = dialog.showAndWait();
+      if (input.isPresent() && !input.get().isEmpty()) {
             /*
                TODO: Check if there is a user with the same name among the currently logged-in users,
                      if so, ask the user to change the username
              */
-      //check if there is a username like that
-      username = input.get();
-      try {
-        clientThread.checkUsername(username); //且进行login
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+        //check if there is a username like that
+        username = input.get();
+        try {
+          validation = false;
+          userExist = false;
+          clientThread.checkUsername(username); //且进行login
+          while (true) {
+            if (validation & !userExist) {
+              alert("User<" + username + "> has logged in");
+              break;
+            } else if (!validation & userExist) {
+              alert("User<" + username + "> exists");
+              break;
+            }
+          }
+          if (validation & !userExist) {
+            break;
+          }
+        } catch (IOException e) {
+          System.out.println("validation stuff");
+        }
+      } else if (!input.isPresent()) { //取消
+        System.exit(0);
+      } else if (input.isPresent() && input.get().isEmpty()) {
+        dialog.close();
+        alert("Blank is not acceptable");
       }
-    } else if (!input.isPresent()) {
-      try {
-        clientThread.leave();
-      } catch (IOException e) {
-        System.out.println("Controller(103): clientThread.exit() error.");
-      }
-    } else {
-      System.out.println("Invalid username " + input + ", exiting");
-
     }
 
     chatContentList.setCellFactory(new MessageCellFactory());
@@ -194,14 +213,33 @@ public class Controller implements Initializable {
 
   }
 
+  public void setValidation(boolean validation, boolean userExist) {
+
+    this.validation = validation;
+    this.userExist = userExist;
+
+
+  }
+
   public void alert(String text) {
+//    Platform.runLater(() -> {
+    Alert alert = new Alert(AlertType.WARNING);
+    alert.setTitle("Warning");
+    alert.setHeaderText(null);
+    alert.setContentText(text);
+    alert.showAndWait();
+//    });
+  }
+
+  public void alertLater(String text) {
     Platform.runLater(() -> {
       Alert alert = new Alert(AlertType.WARNING);
       alert.setTitle("Warning");
       alert.setHeaderText(null);
       alert.setContentText(text);
       alert.showAndWait();
-      destroy();
+      clientThread.threadDie();
+      Platform.exit();
     });
 
   }
@@ -217,7 +255,6 @@ public class Controller implements Initializable {
   //创建私聊
   public void createPrivateChat() {
     AtomicReference<String> user = new AtomicReference<>();
-
     Stage stage = new Stage();
 
     ComboBox<String> userSel = new ComboBox<>(); //下拉框
@@ -232,14 +269,13 @@ public class Controller implements Initializable {
       userSel.getItems().add(users[i]);
     }
 
-
     okBtn.setOnAction(e -> {
       //将选择的用户保存到AtomicReference类型的user变量中
       user.set(userSel.getSelectionModel().getSelectedItem());
       try {
         clientThread.createPrivate(user.get());
       } catch (IOException ex) {
-        throw new RuntimeException(ex);
+        System.out.println("error");
       }
       stage.close();
     });
@@ -249,13 +285,7 @@ public class Controller implements Initializable {
     box.setPadding(new Insets(20, 20, 20, 20));
     box.getChildren().addAll(userSel, okBtn);
 
-
-
     stage.setScene(new Scene(box));
-
-//    stage.setOnCloseRequest(windowEvent -> {
-//      destroy();
-//    });
     // TODO: if the current user already chatted with the selected user, just open the chat with that user
     // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
     // 标题为选定用户的用户名称
@@ -291,7 +321,7 @@ public class Controller implements Initializable {
 
     okBtn.setOnAction(e -> {
       List<String> usersChosen = new ArrayList<>();
-      for (CheckBox checkBox: userSel
+      for (CheckBox checkBox : userSel
       ) {
         if (checkBox.isSelected()) {
           usersChosen.add(checkBox.getText());
@@ -300,7 +330,7 @@ public class Controller implements Initializable {
       try {
         clientThread.createGroup(usersChosen);
       } catch (IOException ex) {
-        throw new RuntimeException(ex);
+        System.out.println("error");
       }
       stage.close();
     });
@@ -311,9 +341,7 @@ public class Controller implements Initializable {
     box.getChildren().addAll(userSel);
     box.getChildren().add(okBtn);
     stage.setScene(new Scene(box));
-//    stage.setOnCloseRequest(windowEvent -> {
-//      destroy();
-//    });
+
     // TODO: if the current user already chatted with the selected user, just open the chat with that user
     // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
     // 标题为选定用户的用户名称
@@ -433,7 +461,7 @@ public class Controller implements Initializable {
             try {
               clientThread.switchGroup(msgLabel.getText());
             } catch (IOException e) {
-              throw new RuntimeException(e);
+              System.out.println("error");
             }
           });
 //            System.out.println(currentRoom);
@@ -468,5 +496,4 @@ public class Controller implements Initializable {
       System.out.println("Controller(253): clientThread.exit() error.");
     }
   }
-
 }

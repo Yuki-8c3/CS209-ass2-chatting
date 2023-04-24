@@ -42,7 +42,6 @@ public class ServerThread extends Thread {
   }
 
 
-
   @Override
   public void run() {
 //    System.out.println("Hi, I am alive");
@@ -64,21 +63,35 @@ public class ServerThread extends Thread {
       }
     } catch (SocketException e) {
       System.out.println("Socket<" + userSocket.getPort() + ">" + "has logged out.");
+      // 修改user所在的
     } catch (IOException e) {
       System.out.println("Error in readLine");
     } finally {
-      //在用户端线程关闭的时候，服务器线程通过user调用杀死进程
-      //关闭进程
-      //TODO：改变总服务器的在线人数和列表，并且由该线程广播，然后再死
       if (login) {
-        System.out.println("here");
+        //TODO:改变在线人数和在线用户列表
         Server.onlineUser--;
         Server.onlineUserList.remove(this.user);
-        // code = 101 更新在线列表，一般是上线或者下线,数量和名字一起
-        // 简短的信息放前面
-        sendOnlineMessage(wrapper(101, "<num>" + Server.onlineUser + "</num>" + getOnlineUsers()));
-        // 广播完了，现在线程可以死了
-        // TODO：可能有个房间的提示好一点，但是目前先这样吧
+        //TODO：更改用户所在房间的信息
+        List<Room> roomNeedChange = this.user.getRoomList();
+        for (Room room : roomNeedChange) {
+          int userLeftInRoom = room.getTotalUsers() - 1;
+          room.setTotalUsers(userLeftInRoom); //更改人数
+          room.getUserList().remove(this.user); //移除用户
+          room.getChatHistory()
+              .add(new Message("System", "User<" + this.user.getUserName() + "> has left"));
+          //添加用户离开的消息通知
+          //TODO: 广播房间内用户
+          try {
+            sendPartnerInRoom(room);
+          } catch (IOException e) {
+            System.out.println("Broadcast users in room<" + room.getRoomName() + "> fail");
+          }
+          //TODO：广播全服用户 - 主要是改在线人数和userlist
+          sendOnlineMessage(
+              //101 - 广播修改online和user
+              wrapper(101, "<num>" + Server.onlineUser + "</num>" + getOnlineUsers()));
+        }
+        //TODO: 关掉资源，不销毁对象
         try {
           //全部关闭
           user.getUis().close();
@@ -86,7 +99,7 @@ public class ServerThread extends Thread {
           user.getUos().close();
           exit = true;
         } catch (IOException e) {
-          throw new RuntimeException(e);
+          System.out.println("-------It might not have the object you need to close");
         }
       }
     }
@@ -129,7 +142,7 @@ public class ServerThread extends Thread {
     ) {
       stringBuffer.append(message.getSentBy())
           .append(",").append(message.getData())
-              .append(",").append("-");
+          .append(",").append("-");
       //send,data,-
     }
     stringBuffer.append("</chat>");
@@ -204,7 +217,7 @@ public class ServerThread extends Thread {
               .orElse(null);
           if (existRoom == null) {
             existRoom = Server.roomList.stream()
-                .filter(u -> u.getRoomName().equals( partnerName + "," + user.getUserName()))
+                .filter(u -> u.getRoomName().equals(partnerName + "," + user.getUserName()))
                 .findFirst()
                 .orElse(null);
           }
@@ -317,7 +330,7 @@ public class ServerThread extends Thread {
 //        Pattern codePattern = Pattern.compile("<roomname>(.*)</roomname>");
 //        assert msg != null;
 //        Matcher codeMatcher = codePattern.matcher(msg);
-        String currentRoomName= this.user.getCurrentRoom();
+        String currentRoomName = this.user.getCurrentRoom();
 
 //        if (codeMatcher.find()) {
 //          roomname = codeMatcher.group(1);
@@ -386,7 +399,7 @@ public class ServerThread extends Thread {
 
   private void sendGroupPartnerMessage(Room room) throws IOException {
     OutputStream pw;
-    System.out.println("------"+room.getRoomName());
+    System.out.println("------" + room.getRoomName());
     //改的是房间渲染，可以不发chatHistory
     List<User> users = room.getUserList();
     String str = "";

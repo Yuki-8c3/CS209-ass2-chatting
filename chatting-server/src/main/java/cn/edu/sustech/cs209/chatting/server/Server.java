@@ -48,15 +48,6 @@ public class Server {
             thread.start();
         }
     }
-
-    public static void sendServerDeath() throws IOException {
-        List<User> onlineUsers = Server.onlineUserList;
-        for (User user: onlineUsers) {
-            OutputStream pw = user.getUos();
-            pw.write(wrapper(701, "die").getBytes(StandardCharsets.UTF_8));
-            pw.flush();
-        }
-    }
     public static void main(String[] args) throws IOException {
         System.out.println("Starting server");
         //监听端口号6666
@@ -65,10 +56,6 @@ public class Server {
             server.listen();
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            //退出server，先发一个信息出去
-            sendServerDeath();
-            System.exit(0);
         }
     }
 

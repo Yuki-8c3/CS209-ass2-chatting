@@ -19,7 +19,6 @@ public class ClientThread extends Thread {
   // 在线程里创建一个Controller管理
   // 有自己的套接字收来自server的信息
   // 有自己的读写器
-
   private Socket clientSocket;
   private Controller controller; //controller里也有一个对应的线程
   private InputStream cis;
@@ -66,9 +65,12 @@ public class ClientThread extends Thread {
         }
       }
     } catch (Exception e) {
-      System.out.println("error in connection, server might be shut down");
-      controller.destroy();
+      controller.alertLater("error in connection, server might be shut down");
     }
+  }
+
+  public void threadDie(){
+    System.exit(0);
   }
 
 
@@ -152,10 +154,11 @@ public class ClientThread extends Thread {
         break;
       case "201":
         // 201: 用户是否已经存在，true-可以用这个名字
+        controller.setValidation(true, false);
         controller.setName(msg);
         break;
       case "202":
-        controller.alert("Invalid name");
+        controller.setValidation(false, true);
         break;
       case "301":
         // 301：exit
