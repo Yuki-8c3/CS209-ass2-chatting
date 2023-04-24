@@ -34,14 +34,14 @@ public class Server {
         roomList = new ArrayList<>();
 //        this.userList = new ArrayList<>();
         serverSocket = new ServerSocket(port);
-        System.out.println("Server is started");
     }
 
     public void listen() throws Exception{
+        System.out.println("--------------Hi, I am listening!");
         while (true) {
             Socket socket = serverSocket.accept();
             int port = socket.getPort();
-            System.out.println("The new client is:"+port);
+            System.out.println("The new client is: "+port);
             //创建新的用户并且入表，分配新的线程并且参数转移
             //有一个信息的解构这里放在单独的线程里完成，所以用户在服务器线程内构建
             ServerThread thread = new ServerThread(socket);

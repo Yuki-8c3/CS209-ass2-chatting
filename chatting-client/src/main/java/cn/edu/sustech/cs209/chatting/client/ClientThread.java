@@ -1,6 +1,9 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -12,10 +15,12 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ClientThread extends Thread {
+
   // 在线程里创建一个Controller管理
   // 有自己的套接字收来自server的信息
   // 有自己的读写器
@@ -69,7 +74,7 @@ public class ClientThread extends Thread {
     }
   }
 
-  public void threadDie(){
+  public void threadDie() {
     System.exit(0);
   }
 
@@ -78,11 +83,32 @@ public class ClientThread extends Thread {
     return "<code>" + code + "</code><msg>" + msg + "</msg>\n";
   }
 
+  public void sendFileText(File file) {
+    try {
+      // 打开文件并读取内容
+      Scanner scanner = new Scanner(file);
+      StringBuilder stringBuilder = new StringBuilder();
+      while (scanner.hasNextLine()) {
+        stringBuilder.append(scanner.nextLine());
+      }
+      String fileContent = stringBuilder.toString();
+      scanner.close();
+
+      cos.write(wrapper("sendMessage", fileContent).getBytes(StandardCharsets.UTF_8));
+      cos.flush();
+      System.out.println("文件发送成功");
+    } catch (FileNotFoundException e) {
+      System.out.println("There is no file like this!");
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   public void sendMessage(String msg) throws IOException {
     System.out.println("SEND---------------->" + msg);
     String[] lines = msg.split("\n");
-    if(lines.length == 1) {
-      cos.write(wrapper("sendMessage",msg).getBytes(StandardCharsets.UTF_8));
+    if (lines.length == 1) {
+      cos.write(wrapper("sendMessage", msg).getBytes(StandardCharsets.UTF_8));
       cos.flush();
       return;
     }
@@ -90,14 +116,16 @@ public class ClientThread extends Thread {
     for (String line : lines) {
       sb.append(line).append("&");
     }
-    cos.write(wrapper("sendMessage",sb.toString()).getBytes(StandardCharsets.UTF_8));
+    cos.write(wrapper("sendMessage", sb.toString()).getBytes(StandardCharsets.UTF_8));
     cos.flush();
   }
+
   public void switchGroup(String groupName) throws IOException {
 //    System.out.println("!!!!!!!!!!switch to "+ groupName);
     cos.write(wrapper("roomSwitch", groupName).getBytes(StandardCharsets.UTF_8));
     cos.flush();
   }
+
   public void createPrivate(String username) throws IOException {
     cos.write(wrapper("privateCreate", username).getBytes(StandardCharsets.UTF_8));
     cos.flush();
@@ -105,7 +133,7 @@ public class ClientThread extends Thread {
 
   public void createGroup(List<String> userList) throws IOException {
     StringBuffer stringBuffer = new StringBuffer();
-    for (String str: userList
+    for (String str : userList
     ) {
       stringBuffer.append(str).append(",");
     }
@@ -147,7 +175,7 @@ public class ClientThread extends Thread {
         Matcher msgMatcher = messagePattern.matcher(msg);
         String resultList = "";
         if (msgMatcher.find()) {
-          resultList= msgMatcher.group(1);
+          resultList = msgMatcher.group(1);
         }
         String[] userArray = resultList.split(",");
         controller.setUsernames(userArray);
@@ -192,13 +220,19 @@ public class ClientThread extends Thread {
           break;
         }
         String[] mess = num.split("-");
-        for (String mes: mess
+        for (String mes : mess
         ) {
           String[] str = mes.split(",");
           Message newMessage = new Message(str[0], str[1]);
           messageList.add(newMessage);
         }
-        controller.setChatContentList(messageList, curroom);
+        codePattern = Pattern.compile("<roomuser>(.*)</roomuser>");
+        codeMatcher = codePattern.matcher(msg);
+        String usersInRoom = "";
+        if (codeMatcher.find()) {
+          usersInRoom = codeMatcher.group(1);
+        }
+        controller.setChatContentList(messageList, curroom, usersInRoom);
         break;
 
       case "402":
@@ -223,7 +257,7 @@ public class ClientThread extends Thread {
         if (codeMatcher.find()) {
           num = codeMatcher.group(1);
         }
-        System.out.println("roomname is" + num);
+//        System.out.println("roomname is" + num);
         curroom = num;
         controller.setCurrentRoom(num);
         //ChatHistory
@@ -238,14 +272,20 @@ public class ClientThread extends Thread {
           break;
         }
         mess = num.split("-");
-        for (String mes: mess
+        for (String mes : mess
         ) {
           String[] str = mes.split(",");
 //          System.out.println(str.length);
           Message newMessage = new Message(str[0], str[1]);
           messageList.add(newMessage);
         }
-        controller.setChatContentList(messageList, curroom);
+        codePattern = Pattern.compile("<roomuser>(.*)</roomuser>");
+        codeMatcher = codePattern.matcher(msg);
+        usersInRoom = "";
+        if (codeMatcher.find()) {
+          usersInRoom = codeMatcher.group(1);
+        }
+        controller.setChatContentList(messageList, curroom, usersInRoom);
         break;
       case "502":
         //roomList
@@ -284,13 +324,19 @@ public class ClientThread extends Thread {
           break;
         }
         mess = num.split("-");
-        for (String mes: mess
+        for (String mes : mess
         ) {
           String[] str = mes.split(",");
           Message newMessage = new Message(str[0], str[1]);
           messageList.add(newMessage);
         }
-        controller.setChatContentList(messageList, curroom);
+        codePattern = Pattern.compile("<roomuser>(.*)</roomuser>");
+        codeMatcher = codePattern.matcher(msg);
+        usersInRoom = "";
+        if (codeMatcher.find()) {
+          usersInRoom = codeMatcher.group(1);
+        }
+        controller.setChatContentList(messageList, curroom, usersInRoom);
         break;
       case "701":
         controller.alert("Server has shut down");

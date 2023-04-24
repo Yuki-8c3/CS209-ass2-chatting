@@ -44,7 +44,6 @@ public class ServerThread extends Thread {
 
   @Override
   public void run() {
-//    System.out.println("Hi, I am alive");
     try {
       while (true) {
         byte[] buffer = new byte[1024];
@@ -57,7 +56,7 @@ public class ServerThread extends Thread {
         String msg = charBuffer.toString();
 //        String msg = br.readLine();
         if (!msg.equals("")) {
-          System.out.println("The msg" + msg);
+          System.out.println("The msg is :  " + msg);
           destructMessage(msg);
         }
       }
@@ -134,6 +133,17 @@ public class ServerThread extends Thread {
     return stringBuffer.toString();
   }
 
+  private String getRoomUsers(Room room) {
+    List<User> roomUsers = room.getUserList();
+    StringBuffer stringBuffer = new StringBuffer();
+    stringBuffer.append("<roomuser>");
+    for (User user : roomUsers) {
+      stringBuffer.append(user.getUserName()).append(",");
+    }
+    stringBuffer.append("</roomuser>");
+    return stringBuffer.toString();
+  }
+
   private String getChatHistory(Room room) {
     List<Message> chatHistory = room.getChatHistory();
     StringBuffer stringBuffer = new StringBuffer();
@@ -195,7 +205,6 @@ public class ServerThread extends Thread {
         }
         // code = 101 更新在线列表，一般是上线或者下线,数量和名字一起
         // 简短的信息放前面
-
         sendOnlineMessage(wrapper(101, "<num>" + Server.onlineUser + "</num>" + getOnlineUsers()));
         returnMessage(wrapper(301, "true"));
         break;
@@ -221,7 +230,6 @@ public class ServerThread extends Thread {
                 .findFirst()
                 .orElse(null);
           }
-
           //有房就要返回名字和历史
           //不改变roomList
           //roomSwitch, 返回roomList,room, chatlist
@@ -322,30 +330,10 @@ public class ServerThread extends Thread {
         this.user.setCurrentRoom(switchRoom.getRoomName());
         returnMessage(wrapper(403,
             "<roomname>" + switchRoom.getRoomName() + "</roomname>"
-                + getChatHistory(switchRoom)));
+                + getChatHistory(switchRoom)+ getRoomUsers(switchRoom)) );
         break;
       case "sendMessage":
-        //send, message
-        //拆分roomname
-//        Pattern codePattern = Pattern.compile("<roomname>(.*)</roomname>");
-//        assert msg != null;
-//        Matcher codeMatcher = codePattern.matcher(msg);
         String currentRoomName = this.user.getCurrentRoom();
-
-//        if (codeMatcher.find()) {
-//          roomname = codeMatcher.group(1);
-//        } else {
-//          roomname = "";
-//        }
-//        Pattern codePattern = Pattern.compile("<data>(.*)</data>");
-//        assert msg != null;
-//        Matcher codeMatcher = codePattern.matcher(msg);
-//        String dataSent;
-//        if (codeMatcher.find()) {
-//          dataSent = codeMatcher.group(1);
-//        } else {
-//          dataSent = "";
-//        }
         String sentBy = this.user.getUserName();
         String data = msg;
         Message newMessage = new Message(sentBy, data);
@@ -407,7 +395,7 @@ public class ServerThread extends Thread {
       if (u.getCurrentRoom().equals(room.getRoomName())) {
         str = wrapper(402,
             getAllRooms(u) + "<roomname>" + room.getRoomName() + "</roomname>" + getChatHistory(
-                room));//当前创建了新的房间的人
+                room) + getRoomUsers(room));//当前创建了新的房间的人
       } else {
         str = wrapper(402,
             getAllRooms(u) + "<roomname>" + u.getCurrentRoom() + "</roomname>"
@@ -428,7 +416,7 @@ public class ServerThread extends Thread {
         //如果是在聊天中的
         String str = wrapper(502,
             getAllRooms(u) + "<roomname>" + room.getRoomName() + "</roomname>"
-                + getChatHistory(room));
+                + getChatHistory(room) + getRoomUsers(room));
         pw = u.getUos();
         pw.write(str.getBytes(StandardCharsets.UTF_8));
         pw.flush();

@@ -1,6 +1,7 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -24,6 +25,7 @@ import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import javafx.util.Callback;
@@ -51,6 +53,8 @@ public class Controller implements Initializable {
   @FXML
   Label currentOnlineCnt;
   @FXML
+  Button fileSender;
+  @FXML
   Button emojiOk;
   private ClientThread clientThread;
   boolean validation = false;
@@ -74,11 +78,12 @@ public class Controller implements Initializable {
   }
 
 
-  public void setChatContentList(List<Message> messages, String str) {
+  public void setChatContentList(List<Message> messages, String currentRoom, String usersInRoom) {
     Platform.runLater(() -> {
-      this.currentRoom = str;
+      this.currentRoom = currentRoom;
       messageObservableList.clear();
-      messageObservableList.add(new Message("System", "CURRENT ROOM:" + this.currentRoom));
+      messageObservableList.add(new Message("System", "CURRENT ROOM: " + this.currentRoom));
+      messageObservableList.add(new Message("System", "CURRENT USERS: " + usersInRoom));
       for (Message m : messages
       ) {
         if (m.getData().contains("&")) {
@@ -151,9 +156,21 @@ public class Controller implements Initializable {
     ChoiceBox<String> emojiChoiceBox = new ChoiceBox<>();
     emojiChoiceBox.getItems().addAll("\uD83D\uDE00", "😂", "😍", "👍"); // 将Emoji表情添加到选项中
     Stage stage = new Stage();
+    Stage fileStage = new Stage();
     stage.setScene(new Scene(emojiChoiceBox));
     emoji.setOnAction(event -> {
       stage.showAndWait();
+    });
+    fileSender.setOnAction(actionEvent -> {
+      // 创建一个文件选择器
+      FileChooser fileChooser = new FileChooser();
+      fileChooser.setTitle("选择要发送的文件");
+
+      // 显示文件选择器并等待用户选择文件
+      File file = fileChooser.showOpenDialog(fileStage);
+      if (file != null) {
+        clientThread.sendFileText(file);
+      }
     });
     emojiOk.setOnAction(actionEvent -> {
       String selectedEmoji = emojiChoiceBox.getValue();
