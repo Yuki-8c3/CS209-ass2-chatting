@@ -71,6 +71,7 @@ public class Controller implements Initializable {
 
   /**
    * 修改当前所在聊天室名称：直接改message第一句.
+   *
    * @param str
    */
   public void setCurrentRoom(String str) {
@@ -106,6 +107,11 @@ public class Controller implements Initializable {
         } else {
           messageObservableList.add(m);
         }
+      }
+      int size = messageObservableList.size();
+      Message last = messageObservableList.get(size - 1);
+      if (!last.getSentBy().equals(this.username)) {
+        alertInfo("User<" + this.username + "> has receive a new message");
       }
     });
   }
@@ -208,7 +214,7 @@ public class Controller implements Initializable {
           clientThread.checkUsername(username); //且进行login
           while (true) {
             if (validation & !userExist) {
-              alert("User<" + username + "> has logged in");
+              alertSuccess("User<" + username + "> has logged in");
               break;
             } else if (!validation & userExist) {
               alert("User<" + username + "> exists");
@@ -244,10 +250,23 @@ public class Controller implements Initializable {
 
   }
 
+  public void alertSuccess(String text) {
+    Alert alert = new Alert(AlertType.CONFIRMATION);
+    alert.setHeaderText(null);
+    alert.setContentText(text);
+    alert.showAndWait();
+  }
+
+  public void alertInfo(String text) {
+    Alert alert = new Alert(AlertType.INFORMATION);
+    alert.setHeaderText(null);
+    alert.setContentText(text);
+    alert.showAndWait();
+  }
+
   public void alert(String text) {
 //    Platform.runLater(() -> {
     Alert alert = new Alert(AlertType.WARNING);
-    alert.setTitle("Warning");
     alert.setHeaderText(null);
     alert.setContentText(text);
     alert.showAndWait();
