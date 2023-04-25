@@ -4,10 +4,15 @@ import cn.edu.sustech.cs209.chatting.common.Message;
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.ResourceBundle;
+import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleStringProperty;
@@ -21,21 +26,18 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.HBox;
-import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.stage.WindowEvent;
 import javafx.util.Callback;
 
-import java.net.URL;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.ResourceBundle;
-import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * fx UI，和ClientThread做交互.
+ *
+ * @author Yuki Huang
+ * @since 2023/4/22
+ */
 public class Controller implements Initializable {
 
   @FXML
@@ -67,6 +69,10 @@ public class Controller implements Initializable {
   String currentRoom;
 
 
+  /**
+   * 修改当前所在聊天室名称：直接改message第一句.
+   * @param str
+   */
   public void setCurrentRoom(String str) {
     //一般是创建了新的，所以先要清除所有的messages
     Platform.runLater(() -> {
